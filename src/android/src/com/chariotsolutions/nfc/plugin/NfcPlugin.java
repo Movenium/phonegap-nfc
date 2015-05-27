@@ -32,6 +32,9 @@ import android.nfc.tech.NdefFormatable;
 import android.os.Parcelable;
 import android.util.Log;
 
+import android.nfc.tech.MifareClassic;
+import java.util.Arrays;
+
 public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCompleteCallback {
     private static final String REGISTER_MIME_TYPE = "registerMimeType";
     private static final String REMOVE_MIME_TYPE = "removeMimeType";
@@ -49,6 +52,7 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
     private static final String STOP_HANDOVER = "stopHandover";
     private static final String ENABLED = "enabled";
     private static final String INIT = "init";
+    private static final String READID06 ="readID06";
 
     private static final String NDEF = "ndef";
     private static final String NDEF_MIME = "ndef-mime";
@@ -134,12 +138,164 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
             // if code made it here, NFC is enabled
             callbackContext.success(STATUS_NFC_OK);
 
+        } else if(action.equalsIgnoreCase(READID06)) {
+            readId06(data, callbackContext);
         } else {
             // invalid action
             return false;
         }
 
         return true;
+    }
+    
+    private void readID06(JSONArray params, CallbackContext callbackContext){
+        Log.d(TAG, "Read ID06");
+
+
+        JSONObject ret = new JSONObject();
+
+        Tag tagFromIntent = savedIntent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+        MifareClassic mfc = MifareClassic.get(tagFromIntent);
+        int secCount = 0;
+        int sec = 0;
+        byte[] data;
+
+        byte [] keyA = new byte[] {(byte) 0xa0, (byte)0xa1, (byte)0xa2, (byte)0xa3, (byte)0xa4, (byte)0xa5};
+        byte [] key_user = new byte[] {}; // TODO: where should this be stored
+
+        byte [] aid_name = new byte[] {(byte) 0x00, (byte) 0x04};
+        byte [] aid_2 = new byte [] {(byte) 0x51, (byte) 0x89};
+        byte [] aid_3 = new byte [] {(byte) 0x51, (byte) 0x8a};
+        byte [] aid_4 = new byte [] {(byte) 0x51, (byte) 0x8b};
+        byte [] aid_5 = new byte [] {(byte) 0x51, (byte) 0x8c};
+        byte [] aid_6 = new byte [] {(byte) 0x51, (byte) 0x8d};
+
+
+        try {
+            mfc.connect();
+            Log.d(TAG, "connected");
+
+
+            byte [] mad_directory = MifareReadSector(mfc, 0, new int[]{1, 2}, keyA);
+            Log.d(TAG, "dir: " + bytesToHex(mad_directory) + " => " + bytesToString(mad_directory).trim());
+            byte [] name = MifareReadCluster(mfc, aid_name, new int[]{0, 1, 2}, keyA, mad_directory);
+            ret.put("name", bytesToString(name).trim());
+
+            data =  MifareReadCluster(mfc, aid_2, new int[]{1}, key_user, mad_directory);
+            ret.put("country_code", bytesToString(Arrays.copyOfRange(data, 0, 2)));
+            ret.put("company_number", bytesToString(Arrays.copyOfRange(data, 2, 16)).trim());
+
+            data =  MifareReadCluster(mfc, aid_2, new int[]{2}, key_user, mad_directory);
+            ret.put("nationality", bytesToString(Arrays.copyOfRange(data, 0, 2)));
+            ret.put("person_number", bytesToString(Arrays.copyOfRange(data, 2, 16)).trim());
+
+            data =  MifareReadCluster(mfc, aid_3, new int[]{0,1,2}, key_user, mad_directory);
+            ret.put("company", bytesToString(data).trim());
+
+            data =  MifareReadCluster(mfc, aid_4, new int[]{0}, key_user, mad_directory);
+            //ret.put("serial", bytesToString(Arrays.copyOfRange(data, 0, 8)).trim());
+            ret.put("expires", bytesToString(Arrays.copyOfRange(data, 8, 16)).trim());
+
+            data =  MifareReadCluster(mfc, aid_4, new int[]{1}, key_user, mad_directory);
+            ret.put("card_number", bytesToString(Arrays.copyOfRange(data, 0, 16)).trim());
+
+            data =  MifareReadCluster(mfc, aid_4, new int[]{2}, key_user, mad_directory);
+            ret.put("url", bytesToString(Arrays.copyOfRange(data, 0, 16)).trim());
+
+            data =  MifareReadCluster(mfc, aid_5, new int[]{0,1}, key_user, mad_directory);
+            ret.put("competence", bytesToString(data).trim());
+
+            data =  MifareReadCluster(mfc, aid_5, new int[]{2}, key_user, mad_directory);
+            ret.put("relative_phone2", bytesToString(data).trim());
+
+            data =  MifareReadCluster(mfc, aid_6, new int[]{0}, key_user, mad_directory);
+            ret.put("phone1", bytesToString(data).trim());
+
+            data =  MifareReadCluster(mfc, aid_6, new int[]{1}, key_user, mad_directory);
+            ret.put("relative", bytesToString(data).trim());
+
+            data =  MifareReadCluster(mfc, aid_6, new int[]{2}, key_user, mad_directory);
+            ret.put("pin", bytesToString(Arrays.copyOfRange(data, 12, 16)).trim());
+
+
+        } catch (IOException e) {
+        	Log.e(TAG, "No connection", e);
+        }
+        catch (JSONException e) {
+            Log.e(TAG, "JSON error", e);
+        }
+        finally {
+            if (mfc != null) {
+                try {
+                    mfc.close();
+                    Log.d(TAG, "closed");
+                } catch (IOException e) {
+                    Log.e(TAG, "Error closing tag...", e);
+                }
+            }
+        }
+
+        callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, ret));
+    }
+
+    private static byte [] MifareReadCluster(MifareClassic mfc, byte [] code, int [] blocks, byte [] key, byte [] mad_directory) {
+
+        int sector = 0;
+        byte application_code = code[1];
+        byte cluster_code = code[0];
+
+        for (int i=2; i < mad_directory.length; i += 2) {
+            if (mad_directory[i] == application_code && mad_directory[i+1] == cluster_code) {
+                sector = i/2;
+            }
+        }
+
+        if (sector == 0) {
+            Log.e(TAG, "Sector not found for: " + application_code + "-" + cluster_code);
+            return null;
+        }
+        else {
+            Log.d(TAG, "Sector found for: " + application_code + "-" + cluster_code + " => " + sector);
+        }
+
+        return MifareReadSector(mfc, sector, blocks, key);
+    }
+
+    private static byte [] MifareReadSector(MifareClassic mfc, int sector, int [] blocks, byte [] key) {
+        int block_length = 16;
+        byte[] combined = new byte[blocks.length * block_length];
+
+        try {
+            boolean auth = mfc.authenticateSectorWithKeyA(sector, key);
+            int bIndex = mfc.sectorToBlock(sector);
+
+            for (int i=0 ; i < blocks.length; i++) {
+                int block = blocks[i];
+                byte[] data = mfc.readBlock(bIndex + block);
+                System.arraycopy(data,0,combined,i*block_length,block_length);
+                Log.d(TAG, "sec: " + sector + " bl:" + block + " data: " + bytesToHex(data) + " => " + bytesToString(data).trim());
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Error reading", e);
+        }
+
+        return combined;
+    }
+
+    private static String bytesToString(byte[] ary) {
+        final StringBuilder result = new StringBuilder();
+        for(int i = 0; i < ary.length; ++i) {
+            result.append(Character.valueOf((char) ary[i]));
+        }
+        return result.toString();
+    }
+
+    private static String bytesToHex(byte [] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02X ", b));
+        }
+        return sb.toString();
     }
 
     private String getNfcStatus() {
