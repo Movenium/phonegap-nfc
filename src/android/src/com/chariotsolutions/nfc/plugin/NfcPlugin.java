@@ -139,7 +139,7 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
             callbackContext.success(STATUS_NFC_OK);
 
         } else if(action.equalsIgnoreCase(READID06)) {
-            readId06(data, callbackContext);
+            readID06(data, callbackContext);
         } else {
             // invalid action
             return false;
