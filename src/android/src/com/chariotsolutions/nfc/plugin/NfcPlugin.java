@@ -161,7 +161,7 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
         byte[] data;
 
         byte [] keyA = new byte[] {(byte) 0xa0, (byte)0xa1, (byte)0xa2, (byte)0xa3, (byte)0xa4, (byte)0xa5};
-        byte [] key_user = new byte[] {}; // TODO: where should this be stored
+        byte [] key_user = Globals.KEY_ID06USER;
 
         byte [] aid_name = new byte[] {(byte) 0x00, (byte) 0x04};
         byte [] aid_2 = new byte [] {(byte) 0x51, (byte) 0x89};
