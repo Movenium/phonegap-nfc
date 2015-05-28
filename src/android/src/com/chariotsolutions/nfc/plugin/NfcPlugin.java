@@ -178,8 +178,12 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
 
             byte [] mad_directory = MifareReadSector(mfc, 0, new int[]{1, 2}, keyA);
             Log.d(TAG, "dir: " + bytesToHex(mad_directory) + " => " + bytesToString(mad_directory).trim());
-            byte [] name = MifareReadCluster(mfc, aid_name, new int[]{0, 1, 2}, keyA, mad_directory);
-            ret.put("name", bytesToString(name).trim());
+            byte [] fullname = MifareReadCluster(mfc, aid_name, new int[]{0, 1, 2}, keyA, mad_directory);
+
+            String [] names = GetNames(fullname);
+
+            ret.put("lastname", names[0]);
+            ret.put("firstname", names[1]);
 
             data =  MifareReadCluster(mfc, aid_2, new int[]{1}, key_user, mad_directory);
             ret.put("country_code", bytesToString(Arrays.copyOfRange(data, 0, 2)));
@@ -236,6 +240,28 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
         }
 
         callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, ret));
+    }
+
+    private static String [] GetNames(byte [] bytes) {
+        int split_index = 0;
+        for (int i = 0; i < bytes.length; i++) {
+            if (bytes[i] == (byte) 0x00) {
+                split_index = i;
+                break;
+            }
+        }
+
+        byte [] lastname_bytes = Arrays.copyOfRange(bytes, 1, split_index);
+        byte [] firstname_bytes = Arrays.copyOfRange(bytes, split_index + 2, bytes.length);
+        //Log.d(TAG, "lastname: " + bytesToHex(lastname_bytes) + " => " + bytesToString(lastname_bytes).trim());
+        //Log.d(TAG, "firstname: " + bytesToHex(firstname_bytes) + " => " + bytesToString(firstname_bytes).trim());
+        String lastname = bytesToString(lastname_bytes).trim();
+        String firstname = bytesToString(firstname_bytes).trim();
+
+        lastname = lastname.substring(0, 1).toUpperCase() + lastname.substring(1).toLowerCase();
+        firstname = firstname.substring(0, 1).toUpperCase() + firstname.substring(1).toLowerCase();
+
+        return new String [] {lastname, firstname};
     }
 
     private static byte [] MifareReadCluster(MifareClassic mfc, byte [] code, int [] blocks, byte [] key, byte [] mad_directory) {
