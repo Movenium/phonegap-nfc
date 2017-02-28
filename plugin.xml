@@ -26,11 +26,13 @@
         </js-module>
 
         <!-- requires Cordova-2.8.0 -->
+        <preference name="KEY_ID06USER" default=""/>
         <config-file target="res/xml/config.xml" parent="/widget">
             <feature name="NfcPlugin">
                 <param name="android-package" value="com.chariotsolutions.nfc.plugin.NfcPlugin"/>
                 <param name="onload" value="true" />
             </feature>
+            <preference name="key_id06user" value="$KEY_ID06USER"/>
         </config-file>
 
         <source-file src="src/android/src/com/chariotsolutions/nfc/plugin/NfcPlugin.java"
