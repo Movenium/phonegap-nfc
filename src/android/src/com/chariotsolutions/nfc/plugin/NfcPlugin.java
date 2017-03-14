@@ -178,7 +178,7 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
 
             byte [] mad_directory = MifareReadSector(mfc, 0, new int[]{1, 2}, keyA);
             Log.d(TAG, "dir: " + bytesToHex(mad_directory) + " => " + bytesToString(mad_directory).trim());
-            byte [] fullname = MifareReadCluster(mfc, aid_name, new int[]{0, 1, 2}, keyA, mad_directory);
+            byte [] fullname = new String(MifareReadCluster(mfc, aid_name, new int[]{0, 1, 2}, keyA, mad_directory), "Windows-1252").getBytes("UTF-8");
 
             String [] names = GetNames(fullname);
 
@@ -193,7 +193,7 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
             ret.put("nationality", bytesToString(Arrays.copyOfRange(data, 0, 2)));
             ret.put("person_number", bytesToString(Arrays.copyOfRange(data, 2, 16)).trim());
 
-            data =  MifareReadCluster(mfc, aid_3, new int[]{0,1,2}, key_user, mad_directory);
+            data =  new String(MifareReadCluster(mfc, aid_3, new int[]{0,1,2}, key_user, mad_directory), "Windows-1252").getBytes("UTF-8");
             ret.put("company", bytesToString(data).trim());
 
             data =  MifareReadCluster(mfc, aid_4, new int[]{0}, key_user, mad_directory);
@@ -215,7 +215,7 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
             data =  MifareReadCluster(mfc, aid_6, new int[]{0}, key_user, mad_directory);
             ret.put("phone1", bytesToString(data).trim());
 
-            data =  MifareReadCluster(mfc, aid_6, new int[]{1}, key_user, mad_directory);
+            data =  new String(MifareReadCluster(mfc, aid_6, new int[]{1}, key_user, mad_directory), "Windows-1252").getBytes("UTF-8");
             ret.put("relative", bytesToString(data).trim());
 
             data =  MifareReadCluster(mfc, aid_6, new int[]{2}, key_user, mad_directory);
@@ -309,11 +309,7 @@ public class NfcPlugin extends CordovaPlugin implements NfcAdapter.OnNdefPushCom
     }
 
     private static String bytesToString(byte[] ary) {
-        final StringBuilder result = new StringBuilder();
-        for(int i = 0; i < ary.length; ++i) {
-            result.append(Character.valueOf((char) ary[i]));
-        }
-        return result.toString();
+        return new String(ary);
     }
 
     private static String bytesToHex(byte [] bytes) {
